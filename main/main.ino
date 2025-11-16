@@ -6,17 +6,21 @@
 
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite sprite = TFT_eSprite(&tft);
+int mainFont = 8;
+int secondFont = 4;
 
+//https://racechrono.com/support/equations/identifiers
 struct strmon monitors[] = {
-    {"speed", "channel(device(gps), speed)*10.0", 0.36, -1},
-    {"delta_lap_time", "channel(device(lap), delta_lap_time)*10.0", 0.1, -1},
-    {"delta_speed", "channel(device(gps), delta_speed)*10.0", 0.36, -1},
-    {"rpm", "channel(device(obd), rpm)", 1.0, 6800},
-    {"tyre_temp_fl", "channel(device(wheel), tyre_temp_fl)", 1.0, 25},
-    {"tyre_temp_fr", "channel(device(wheel), tyre_temp_fr)", 1.0, 25},
-    {"brake_temp_fl", "channel(device(canbus), brake_temp_fl)", 1.0, 650},
-    {"brake_temp_fr", "channel(device(canbus), brake_temp_fr)", 1.0, 650},
-    // {"coolant_temp", "channel(device(obd), coolant_temp)", 1.0, 97},
+    {"Speed", "channel(device(gps), speed)*10.0", 0.36, -1},
+    {"Delta lap time", "channel(device(lap), delta_lap_time)*10.0", 0.1, -1},
+    {"Best lap time", "channel(device(lap), best_lap_time)*10.0", 0.1, -1},
+    {"RPM", "channel(device(obd), rpm)", 1.0, 6800},
+    {"Tyre temp fl", "channel(device(wheel), tyre_temp_fl_1)", 1.0, 25},
+    {"Tyre temp fr", "channel(device(wheel), tyre_temp_fr_1)", 1.0, 25},
+    {"Brake temp fl", "channel(device(canbus), brake_temp_fl)", 1.0, 650},
+    {"Brake temp fr", "channel(device(canbus), brake_temp_fr)", 1.0, 650},
+    {"Coolant temp", "channel(device(obd), coolant_temp)", 1.0, 98},
+    {"Intake temp", "channel(device(obd), intake_temp)", 1.0, -1},
 };
 
 #define BUFFSIZE 500
@@ -34,6 +38,8 @@ int printAreas[4][2] = {
 #define CenterScreenCS 26
 #define RightScreenCS 27
 
+#define TFT_GREEN_GAIN 0x0400
+
 uint32_t background_color = 0x165d;
 uint32_t background_color_backup = 0x165d;
 
@@ -44,92 +50,149 @@ void setup() {
   pinMode(CenterScreenCS,OUTPUT);
   pinMode(RightScreenCS,OUTPUT);
 
-  // onScreen(3);
-
   tft.begin();
   tft.setRotation(3);
-  tft.fillScreen(background_color
-);
+  tft.fillScreen(TFT_BLACK);
   sprite.createSprite(239, 159);
-  for(int i = 0; i<4; i++) {
-    tft.drawRect(printAreas[i][0], printAreas[i][1], 239, 159, TFT_BLACK);
-  }
+  
   rcmonitorstart();
-  TFT_SET_BL(100);
+  TFT_SET_BL(75);
 }
 
 
 void loop() {
   if (rcmonitor()) {
-    std::array<int, 8> convertedValues = convertValues();
 
-    for (int i = 0; i < 4; i++) {
-      sprite.fillSprite(background_color);// clear sprite
-      onScreen(1);
+    bool flash = millis() / 500 % 2; // toggles every 500 ms if the value exceed the alarm threshold
 
-      sprite.setTextSize(2);
+    onScreen(1);
+    for (int index = 8; index < 10; index++) {
+      int monitorValue = (int)monitorValues[index] * monitorMultipliers[index];
 
-      bool flash = millis() / 500 % 2; // toggles every 500 ms
-      if ( monitors[i].alertLevel != -1 && convertedValues[i] > monitors[i].alertLevel && convertedValues[i] < INT16_MAX ) {
+      sprite.setTextSize(1);
+
+      if (monitorValue > 10000) {
+        monitorValue = 0;
+      }
+
+      if ( monitors[index].alertLevel != -1 && monitorValue >+ monitors[index].alertLevel ) {
         background_color = flash ? TFT_RED : background_color_backup;
       } else {
         background_color = background_color_backup;
       }
       sprite.fillSprite(background_color);
 
-      sprite.setTextColor(TFT_BLACK, background_color);// set text color
       sprite.setTextDatum(MC_DATUM);// middle center
-      sprite.drawNumber(convertedValues[i], 
-                            109, 74, 7);// center of 218x148
 
+      sprite.setTextColor(TFT_BLACK, background_color);
+      sprite.drawNumber((int)monitorValue, 
+                              109, 74, mainFont);// center of 218x148
+      sprite.setTextSize(1);
       sprite.setTextDatum(BL_DATUM);
-      sprite.drawString(monitors[i].nam, 
-                            5, 155, 1);
+      sprite.drawString(monitors[index].nam, 
+                            5, 155, secondFont);
 
-      sprite.pushSprite(printAreas[i][0] + 1, 
-                            printAreas[i][1] + 1);
+      sprite.pushSprite(printAreas[index-8][0] + 1, 
+                            printAreas[index-8][1] + 1);
     }
 
-    for (int i = 0; i < 4; i++) {
-      sprite.fillSprite(background_color);// clear sprite
-      onScreen(3);
+    onScreen(2);
+    for (int index = 0; index < 4; index++) {
+      float monitorValue = monitorValues[index] * monitorMultipliers[index];
 
-      sprite.setTextSize(2);
+      sprite.setTextSize(1);
 
-      bool flash = millis() / 500 % 2; // toggles every 500 ms
-      if ( monitors[i+4].alertLevel != -1 && convertedValues[i+4] > monitors[i+4].alertLevel && convertedValues[i+4] < INT16_MAX ) {
+      if (monitorValue > 10000) {
+        monitorValue = 0;
+      }
+
+      if ( monitors[index].alertLevel != -1 && monitorValue >= monitors[index].alertLevel ) {
         background_color = flash ? TFT_RED : background_color_backup;
       } else {
         background_color = background_color_backup;
       }
       sprite.fillSprite(background_color);
 
-      sprite.setTextColor(TFT_BLACK, background_color);// set text color
       sprite.setTextDatum(MC_DATUM);// middle center
-      sprite.drawNumber(convertedValues[i+4], 
-                            109, 74, 7);// center of 218x148
 
+      if (strcmp(monitors[index].nam, "Delta lap time") == 0) {
+        if (monitorValue <= 0) {
+          sprite.setTextColor(TFT_GREEN_GAIN, background_color);
+        } else {
+          sprite.setTextColor(TFT_RED, background_color);
+        }
+        sprite.drawFloat(monitorValue, 2, 
+                              120, 74, mainFont);// center of 218x148
+        sprite.setTextColor(TFT_BLACK, background_color);
+
+      } else if (strcmp(monitors[index].nam, "RPM") == 0){
+          if (monitorValue >= 4000 && monitorValue < 6800) {
+            sprite.setTextColor(TFT_GREEN_GAIN, background_color);
+        } else if (monitorValue < 4000) {
+          sprite.setTextColor(TFT_YELLOW, background_color);
+        }
+        sprite.drawNumber((int)monitorValue,
+                              120, 74, mainFont);// center of 218x148
+        sprite.setTextColor(TFT_BLACK, background_color);
+
+      } else {
+        sprite.setTextColor(TFT_BLACK, background_color);
+        sprite.drawNumber((int)monitorValue, 
+                              120, 74, mainFont);// center of 218x148
+      }
+      sprite.setTextSize(1);
       sprite.setTextDatum(BL_DATUM);
-      sprite.drawString(monitors[i+4].nam, 
-                            5, 155, 1);
+      sprite.drawString(monitors[index].nam, 
+                            5, 155, secondFont);
 
-      sprite.pushSprite(printAreas[i][0] + 1, 
-                            printAreas[i][1] + 1);
+      sprite.pushSprite(printAreas[index][0] + 1, 
+                            printAreas[index][1] + 1);
     }
 
-    snprintf(buff, BUFFSIZE,
-             "speed=%d delta_lap_time=%d delta_speed=%d rpm=%d tyre_temp_fl=%d tyre_temp_fr=%d brake_temp_fl=%d brake_temp_fl=%d",
-             convertedValues[0],
-             convertedValues[1],
-             convertedValues[2],
-             convertedValues[3],
-             convertedValues[4],
-             convertedValues[5],
-             convertedValues[6],
-             convertedValues[7]);
-    Serial.println(buff);
+    onScreen(3);
+    for (int index = 4; index < 8; index++) {
+      int monitorValue = (int)monitorValues[index] * monitorMultipliers[index];
+
+      sprite.setTextSize(1);
+
+      if (monitorValue > 10000) {
+        monitorValue = 0;
+      }
+
+      if ( monitors[index].alertLevel != -1 && monitorValue >= monitors[index].alertLevel ) {
+        background_color = flash ? TFT_RED : background_color_backup;
+      } else {
+        background_color = background_color_backup;
+      }
+      sprite.fillSprite(background_color);
+
+      sprite.setTextDatum(MC_DATUM);// middle center
+
+      if (strcmp(monitors[index].nam, "Brake temp fl") == 0 || strcmp(monitors[index].nam, "Brake temp fr") == 0){
+        if (monitorValue >= 200 && monitorValue < 650) {
+          sprite.setTextColor(TFT_GREEN_GAIN, background_color);
+        } else if (monitorValue < 200) {
+          sprite.setTextColor(TFT_YELLOW, background_color);
+        }
+        sprite.drawNumber((int)monitorValue,
+                              109, 74, mainFont);// center of 218x148
+        sprite.setTextColor(TFT_BLACK, background_color);
+
+      } else {
+        sprite.setTextColor(TFT_BLACK, background_color);
+        sprite.drawNumber((int)monitorValue, 
+                              109, 74, mainFont);// center of 218x148
+      }
+      sprite.setTextSize(1);
+      sprite.setTextDatum(BL_DATUM);
+      sprite.drawString(monitors[index].nam, 
+                            5, 155, secondFont);
+
+      sprite.pushSprite(printAreas[index-4][0] + 1, 
+                            printAreas[index-4][1] + 1);
+    }
   }
-  delay(50);
+  delay(100);
 }
 
 void TFT_SET_BL(uint8_t Value) {
@@ -138,28 +201,6 @@ void TFT_SET_BL(uint8_t Value) {
   } else {
     analogWrite(TFT_BL, Value * 2.55);
   }
-}
-
-
-std::array<int, 8> convertValues() {
-    int speed = (int)monitorValues[0] * monitorMultipliers[0];
-    int delta_lap_time = (int)monitorValues[1] * monitorMultipliers[1];
-    int rpm = (int) monitorValues[2] * monitorMultipliers[2];
-    int delta_speed = (int) monitorValues[3] * monitorMultipliers[3];
-    int tyre_temp_fl = (int)monitorValues[4] * monitorMultipliers[4];
-    int tyre_temp_fr = (int)monitorValues[5] * monitorMultipliers[5];
-    int brake_temp_fl = (int) monitorValues[6] * monitorMultipliers[6];
-    int brake_temp_fr = (int) monitorValues[7] * monitorMultipliers[7];
-    std::array<int, 8> arr;
-    arr[0] = speed;
-    arr[1] = delta_lap_time;
-    arr[2] = rpm;
-    arr[3] = delta_speed;
-    arr[4] = tyre_temp_fl;
-    arr[5] = tyre_temp_fr;
-    arr[6] = brake_temp_fl;
-    arr[7] = brake_temp_fr;
-    return arr;
 }
 
 void onScreen(uint8_t ScreenNumber) {

@@ -57,3 +57,5 @@ Put all the heat inserts and screws.
 ```setRotation``` and ```onScreen``` in the main.cpp are responsible for manipulation the data on the screens. Play with it if you want to adjust it.
 
 ```monitors``` array define which data to get from RaceChrono. Put there anything you need and available in https://racechrono.com/support/equations/identifiers
+
+4. Then power it with USB-C in your car and connect to RaceChrono in Settings->Other devices->Add device->RaceChrono DIY->Bluetooth LE->select it and enable Monitor switch->OK

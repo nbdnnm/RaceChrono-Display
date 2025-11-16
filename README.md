@@ -52,7 +52,7 @@ Put all the heat inserts and screws.
 ![alt text](<pics/case_front.JPG>)
 ![alt text](<pics/case_back.JPG>)
 
-3. Then download this repo, build and upload it with Visual Studio Code with the PlatformIO plugin.
+3. Then download this repo, build and upload it with Arduino IDE with installed libs: TFT_eSPI by Bodmer and NimBLE-Arduino version 1.4.3.
 
 ```setRotation``` and ```onScreen``` in the main.cpp are responsible for manipulation the data on the screens. Play with it if you want to adjust it.
 
